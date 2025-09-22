@@ -1,10 +1,18 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { saveSession } from "@/lib/auth";
 
 const Signin = () => {
   const [formData, setFormData] = useState({
@@ -13,12 +21,14 @@ const Signin = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
@@ -38,12 +48,20 @@ const Signin = () => {
       const data = await response.json();
 
       if (data.success) {
+        const accessToken: string = data.data?.session?.access_token ?? "";
+        const refreshToken: string = data.data?.session?.refresh_token ?? "";
+        const user = data.data?.user ?? null;
+        // Supabase JWT default ~1 hour. Store 59 minutes from now to be safe.
+        const expiresAtMs = Date.now() + 59 * 60 * 1000;
+        saveSession({ accessToken, refreshToken, user, expiresAtMs });
+
         toast({
           title: "Welcome back!",
           description: "You have successfully signed in.",
         });
-        // Handle successful signin (e.g., store tokens, redirect)
-        console.log("Signin successful:", data);
+        const redirectTo =
+          (location.state as any)?.from?.pathname || "/dashboard";
+        navigate(redirectTo, { replace: true });
       } else {
         toast({
           title: "Error",
@@ -104,24 +122,24 @@ const Signin = () => {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               className="w-full bg-gradient-primary hover:opacity-90 transition-smooth shadow-soft"
               disabled={isLoading}
             >
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
             <div className="flex flex-col gap-2 text-sm text-muted-foreground text-center">
-              <Link 
-                to="/forgot-password" 
+              <Link
+                to="/forgot-password"
                 className="text-primary hover:text-accent transition-smooth font-medium"
               >
                 Forgot your password?
               </Link>
               <p>
                 Don't have an account?{" "}
-                <Link 
-                  to="/signup" 
+                <Link
+                  to="/signup"
                   className="text-primary hover:text-accent transition-smooth font-medium"
                 >
                   Sign up
